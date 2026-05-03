@@ -61,6 +61,16 @@ curl -s "http://localhost:3001/api/data/members?limit=3"
 
 # Filter to a single site
 curl -s "http://localhost:3001/api/data/stats?siteId=ev-chris-prod"
+
+# List all backups
+curl -s http://localhost:3001/api/backups
+# Expected: [] initially, then array of backup records after running one
+
+# Trigger a backup for a specific site
+curl -s -X POST http://localhost:3001/api/backups/run \
+  -H "Content-Type: application/json" \
+  -d '{"siteId":"ev-chris-prod"}'
+# Expected: array with one backup record, status "success", contentExportSize > 10000
 ```
 
 ### Common Issues

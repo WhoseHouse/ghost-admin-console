@@ -8,6 +8,7 @@ import Pages from './pages/Pages.jsx';
 import Members from './pages/Members.jsx';
 import Newsletters from './pages/Newsletters.jsx';
 import TiersOffers from './pages/TiersOffers.jsx';
+import Backups from './pages/Backups.jsx';
 import Settings from './pages/Settings.jsx';
 import useSiteStore from './store/siteStore.js';
 
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="/members"     element={<Members />} />
             <Route path="/newsletters" element={<Newsletters />} />
             <Route path="/tiers"       element={<TiersOffers />} />
+            <Route path="/backups"     element={<Backups />} />
             <Route path="/settings"    element={<Settings />} />
           </Routes>
         </main>

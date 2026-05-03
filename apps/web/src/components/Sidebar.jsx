@@ -9,6 +9,7 @@ const NAV = [
   { to: '/members',     label: 'Members',        icon: 'Members',    count: '26.5k' },
   { to: '/newsletters', label: 'Newsletters',    icon: 'Newsletter', count: '6' },
   { to: '/tiers',       label: 'Tiers & Offers', icon: 'Tiers',      count: '3' },
+  { to: '/backups',     label: 'Backups',         icon: 'Backup' },
 ];
 
 export default function Sidebar() {
