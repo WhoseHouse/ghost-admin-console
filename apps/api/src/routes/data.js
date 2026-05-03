@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getClients, getClient } from '../lib/ghostClients.js';
+import { getClients, adminFetch } from '../lib/ghostClients.js';
 
 const router = Router();
 
@@ -170,6 +170,155 @@ router.get('/members', async (req, res) => {
     res.json(members);
   } catch (err) {
     console.error('members error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ── GET /api/data/pages ───────────────────────────────────────────────────
+router.get('/pages', async (req, res) => {
+  const { siteId, status = 'all', limit = '20' } = req.query;
+  const clients = getClients();
+  const targets = siteId
+    ? (clients[siteId] ? [clients[siteId]] : [])
+    : Object.values(clients);
+
+  if (targets.length === 0) return res.status(404).json({ error: 'No matching site(s) found' });
+
+  const opts = {
+    limit: Math.min(parseInt(limit, 10) || 20, 100),
+    fields: 'id,title,status,url,updated_at',
+    order: 'updated_at desc',
+    ...(status !== 'all' ? { filter: `status:${status}` } : {}),
+  };
+
+  try {
+    const perSite = await Promise.all(
+      targets.map(async ({ api, site }) => {
+        const pages = await api.pages.browse(opts);
+        return pages.map(p => ({
+          id:        p.id,
+          title:     p.title,
+          status:    p.status,
+          url:       p.url,
+          updatedAt: p.updated_at ? p.updated_at.slice(0, 10) : '—',
+          siteId:    site.id,
+          siteLabel: site.label,
+          siteUrl:   site.url,
+        }));
+      })
+    );
+    const pages = perSite.flat().sort((a, b) => b.updatedAt > a.updatedAt ? 1 : -1).slice(0, parseInt(limit, 10) || 20);
+    res.json(pages);
+  } catch (err) {
+    console.error('pages error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ── GET /api/data/newsletters ─────────────────────────────────────────────
+router.get('/newsletters', async (req, res) => {
+  const { siteId } = req.query;
+  const clients = getClients();
+  const targets = siteId
+    ? (clients[siteId] ? [clients[siteId]] : [])
+    : Object.values(clients);
+
+  if (targets.length === 0) return res.status(404).json({ error: 'No matching site(s) found' });
+
+  try {
+    const perSite = await Promise.all(
+      targets.map(async ({ api, site }) => {
+        const newsletters = await api.newsletters.browse({ limit: 'all' });
+        return newsletters.map(n => ({
+          id:          n.id,
+          name:        n.name,
+          status:      n.status,
+          description: n.description || '',
+          senderName:  n.sender_name || site.label,
+          siteId:      site.id,
+          siteLabel:   site.label,
+          siteUrl:     site.url,
+        }));
+      })
+    );
+    res.json(perSite.flat());
+  } catch (err) {
+    console.error('newsletters error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ── GET /api/data/tiers ───────────────────────────────────────────────────
+router.get('/tiers', async (req, res) => {
+  const { siteId } = req.query;
+  const clients = getClients();
+  const targets = siteId
+    ? (clients[siteId] ? [clients[siteId]] : [])
+    : Object.values(clients);
+
+  if (targets.length === 0) return res.status(404).json({ error: 'No matching site(s) found' });
+
+  try {
+    const perSite = await Promise.all(
+      targets.map(async ({ site }) => {
+        const body = await adminFetch(site, 'tiers/', { limit: 'all', include: 'monthly_price,yearly_price,benefits' });
+        return (body.tiers ?? []).map(t => ({
+          id:           t.id,
+          name:         t.name,
+          type:         t.type,
+          status:       t.status,
+          description:  t.description || '',
+          monthlyPrice: t.monthly_price ? (t.monthly_price.amount ?? t.monthly_price) / 100 : null,
+          yearlyPrice:  t.yearly_price  ? (t.yearly_price.amount  ?? t.yearly_price)  / 100 : null,
+          currency:     t.monthly_price?.currency ?? t.currency ?? 'USD',
+          benefits:     (t.benefits ?? []).map(b => (typeof b === 'string' ? b : b.name)),
+          siteId:       site.id,
+          siteLabel:    site.label,
+          siteUrl:      site.url,
+        }));
+      })
+    );
+    res.json(perSite.flat());
+  } catch (err) {
+    console.error('tiers error:', err.message);
+    res.status(502).json({ error: err.message });
+  }
+});
+
+// ── GET /api/data/offers ──────────────────────────────────────────────────
+router.get('/offers', async (req, res) => {
+  const { siteId } = req.query;
+  const clients = getClients();
+  const targets = siteId
+    ? (clients[siteId] ? [clients[siteId]] : [])
+    : Object.values(clients);
+
+  if (targets.length === 0) return res.status(404).json({ error: 'No matching site(s) found' });
+
+  try {
+    const perSite = await Promise.all(
+      targets.map(async ({ site }) => {
+        const body = await adminFetch(site, 'offers/', { limit: 'all' });
+        return (body.offers ?? []).map(o => ({
+          id:              o.id,
+          name:            o.name,
+          code:            o.code,
+          displayTitle:    o.display_title || o.name,
+          type:            o.type,
+          status:          o.status,
+          discountAmount:  o.discount_amount,
+          duration:        o.duration,
+          redemptionCount: o.redemption_count ?? 0,
+          currency:        o.currency || '',
+          siteId:          site.id,
+          siteLabel:       site.label,
+          siteUrl:         site.url,
+        }));
+      })
+    );
+    res.json(perSite.flat());
+  } catch (err) {
+    console.error('offers error:', err.message);
     res.status(502).json({ error: err.message });
   }
 });

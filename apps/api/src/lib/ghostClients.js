@@ -1,4 +1,5 @@
 import GhostAdminAPI from '@tryghost/admin-api';
+import jwt from 'jsonwebtoken';
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
@@ -44,4 +45,24 @@ export function getClient(siteId) {
 
 export function getSiteConfigs() {
   return loadSiteConfigs().map(({ id, label, url }) => ({ id, label, url }));
+}
+
+// Make a raw authenticated request to Ghost Admin API for resources not
+// wrapped by @tryghost/admin-api (e.g. tiers, offers).
+export function adminFetch(site, path, params = {}) {
+  const [id, secret] = site.adminKey.split(':');
+  const token = jwt.sign({}, Buffer.from(secret, 'hex'), {
+    keyid: id,
+    algorithm: 'HS256',
+    expiresIn: '5m',
+    audience: '/ghost/admin/',
+  });
+  const url = new URL(`/ghost/api/admin/${path}`, site.url);
+  Object.entries(params).forEach(([k, v]) => { if (v !== undefined) url.searchParams.set(k, String(v)); });
+  return fetch(url.toString(), {
+    headers: {
+      Authorization: `Ghost ${token}`,
+      'Accept-Version': 'v5.0',
+    },
+  }).then(r => r.json());
 }

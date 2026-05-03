@@ -69,3 +69,69 @@ export function useLiveMembers({ tier = 'all', limit = 20 } = {}) {
     retry: 1,
   });
 }
+
+// Pages: array of page objects
+export function useLivePages({ status = 'all', limit = 20 } = {}) {
+  const { dataSource, selectedSiteId } = useSiteStore();
+  const isLive = dataSource === 'live';
+
+  return useQuery({
+    queryKey: ['pages', dataSource, selectedSiteId, status, limit],
+    queryFn: () => apiFetch(buildUrl('/api/data/pages', {
+      siteId: selectedSiteId !== 'all' ? selectedSiteId : undefined,
+      status,
+      limit,
+    })),
+    enabled: isLive,
+    staleTime: 30_000,
+    retry: 1,
+  });
+}
+
+// Newsletters: array of newsletter objects
+export function useLiveNewsletters() {
+  const { dataSource, selectedSiteId } = useSiteStore();
+  const isLive = dataSource === 'live';
+
+  return useQuery({
+    queryKey: ['newsletters', dataSource, selectedSiteId],
+    queryFn: () => apiFetch(buildUrl('/api/data/newsletters', {
+      siteId: selectedSiteId !== 'all' ? selectedSiteId : undefined,
+    })),
+    enabled: isLive,
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+// Tiers: array of tier objects
+export function useLiveTiers() {
+  const { dataSource, selectedSiteId } = useSiteStore();
+  const isLive = dataSource === 'live';
+
+  return useQuery({
+    queryKey: ['tiers', dataSource, selectedSiteId],
+    queryFn: () => apiFetch(buildUrl('/api/data/tiers', {
+      siteId: selectedSiteId !== 'all' ? selectedSiteId : undefined,
+    })),
+    enabled: isLive,
+    staleTime: 60_000,
+    retry: 1,
+  });
+}
+
+// Offers: array of offer objects
+export function useLiveOffers() {
+  const { dataSource, selectedSiteId } = useSiteStore();
+  const isLive = dataSource === 'live';
+
+  return useQuery({
+    queryKey: ['offers', dataSource, selectedSiteId],
+    queryFn: () => apiFetch(buildUrl('/api/data/offers', {
+      siteId: selectedSiteId !== 'all' ? selectedSiteId : undefined,
+    })),
+    enabled: isLive,
+    staleTime: 60_000,
+    retry: 1,
+  });
+}

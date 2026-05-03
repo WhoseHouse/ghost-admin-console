@@ -1,7 +1,14 @@
 import { I } from '../components/icons.jsx';
 import { SITES, fmtNum } from '../data/mockData.js';
+import { useLiveNewsletters } from '../hooks/useLiveData.js';
+import useSiteStore from '../store/siteStore.js';
 
-const NEWSLETTERS = [
+const HUE_PALETTE = [
+  'oklch(0.66 0.13 35)', 'oklch(0.74 0.11 180)', 'oklch(0.62 0.10 260)',
+  'oklch(0.74 0.13 80)', 'oklch(0.55 0.10 320)', 'oklch(0.66 0.15 25)',
+];
+
+const MOCK_NEWSLETTERS = [
   { siteId:"qm", name:"Quiet Machines Weekly",   subs:12380, openRate:"52.4%", clickRate:"14.1%", lastSent:"2026-05-02", cadence:"Weekly",    status:"active"  },
   { siteId:"wd", name:"Wavelength Daily Digest",  subs:8420,  openRate:"48.7%", clickRate:"11.8%", lastSent:"2026-05-02", cadence:"Daily",     status:"active"  },
   { siteId:"fl", name:"Field Notes",              subs:1942,  openRate:"61.2%", clickRate:"18.4%", lastSent:"2026-05-01", cadence:"Weekly",    status:"active"  },
@@ -11,7 +18,13 @@ const NEWSLETTERS = [
 ];
 
 export default function Newsletters() {
-  const totalSubs = NEWSLETTERS.reduce((a, n) => a + n.subs, 0);
+  const { dataSource } = useSiteStore();
+  const isLive = dataSource === 'live';
+
+  const { data: liveNewsletters = [], isLoading, error } = useLiveNewsletters();
+
+  const mockTotalSubs = MOCK_NEWSLETTERS.reduce((a, n) => a + n.subs, 0);
+  const liveActive    = liveNewsletters.filter(n => n.status === 'active').length;
 
   return (
     <div className="main-inner view-enter">
@@ -19,7 +32,11 @@ export default function Newsletters() {
         <div>
           <h1 className="page-title">Newsletters</h1>
           <p className="page-sub">
-            <span className="mono">6 newsletters</span> · <span className="mono">{fmtNum(totalSubs)} total subscribers</span>
+            {isLive
+              ? (error ? <span style={{ color: 'var(--red)' }}>API error: {error.message}</span>
+                : <><span className="mono">{liveNewsletters.length} newsletter{liveNewsletters.length !== 1 ? 's' : ''}</span> configured</>)
+              : <><span className="mono">6 newsletters</span> · <span className="mono">{fmtNum(mockTotalSubs)} total subscribers</span></>
+            }
           </p>
         </div>
         <div className="head-tools">
@@ -28,95 +45,148 @@ export default function Newsletters() {
       </div>
 
       <div className="metrics" style={{ marginBottom: 24 }}>
-        {[
-          { label: 'Total Subscribers', val: fmtNum(totalSubs), sub: '↑ 500 this week',   cls: 'up' },
-          { label: 'Avg Open Rate',     val: '48.2%',            sub: '↑ 2.1% MoM',        cls: 'up' },
-          { label: 'Avg Click Rate',    val: '12.5%',            sub: '↓ 0.8% MoM',        cls: 'down' },
-          { label: 'Campaigns Sent',    val: '284',              sub: '↑ 5.6% this month', cls: 'up' },
+        {isLive ? [
+          { label: 'Newsletters',    val: isLoading ? '…' : String(liveNewsletters.length), sub: 'configured' },
+          { label: 'Active',         val: isLoading ? '…' : String(liveActive),             sub: 'sending',     cls: liveActive > 0 ? 'up' : 'flat' },
+          { label: 'Archived',       val: isLoading ? '…' : String(liveNewsletters.length - liveActive), sub: 'paused', cls: 'flat' },
+          { label: 'Sites',          val: isLoading ? '…' : String([...new Set(liveNewsletters.map(n => n.siteId))].length), sub: 'contributing' },
         ].map(m => (
           <div key={m.label} className="metric" style={{ padding: '14px 16px' }}>
             <div className="metric-label">{m.label}</div>
             <div className="metric-value" style={{ fontSize: 28, marginTop: 10 }}>{m.val}</div>
-            <div className="metric-foot">
-              <span className={'delta ' + (m.cls || 'flat')}>{m.sub}</span>
-            </div>
+            <div className="metric-foot"><span className={'delta ' + (m.cls || 'flat')}>{m.sub}</span></div>
+          </div>
+        )) : [
+          { label: 'Total Subscribers', val: fmtNum(mockTotalSubs), sub: '↑ 500 this week', cls: 'up' },
+          { label: 'Avg Open Rate',     val: '48.2%',               sub: '↑ 2.1% MoM',      cls: 'up' },
+          { label: 'Avg Click Rate',    val: '12.5%',               sub: '↓ 0.8% MoM',      cls: 'down' },
+          { label: 'Campaigns Sent',    val: '284',                  sub: '↑ 5.6% this month', cls: 'up' },
+        ].map(m => (
+          <div key={m.label} className="metric" style={{ padding: '14px 16px' }}>
+            <div className="metric-label">{m.label}</div>
+            <div className="metric-value" style={{ fontSize: 28, marginTop: 10 }}>{m.val}</div>
+            <div className="metric-foot"><span className={'delta ' + (m.cls || 'flat')}>{m.sub}</span></div>
           </div>
         ))}
       </div>
 
-      <div className="nl-grid">
-        {NEWSLETTERS.map((nl, i) => {
-          const site = SITES.find(s => s.id === nl.siteId);
-          const openNum = nl.openRate !== '—' ? parseFloat(nl.openRate) : 0;
-          const statusCls = nl.status === 'active' ? 'online' : nl.status === 'warn' ? 'warn' : 'offline';
-          const statusLabel = nl.status === 'active' ? 'active' : nl.status === 'warn' ? 'stale' : 'setup';
-          return (
-            <div key={i} className="nl-card">
-              <div className="nl-head">
-                <div className="site-fav" style={{
-                  background: site.hue.replace(')', '/0.15)'),
-                  color: site.hue,
-                  borderColor: site.hue.replace(')', '/0.3)'),
-                  width: 32, height: 32, fontSize: 12,
-                }}>
-                  {site.initials}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.005em' }}>{nl.name}</div>
-                  <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--text-3)' }}>{site.url}</div>
-                </div>
-                <div className={'status ' + statusCls}>
-                  <span className="d" />{statusLabel}
-                </div>
-              </div>
-
-              <div className="nl-stats">
-                <div className="nl-stat">
-                  <div className="nl-stat-l">Subscribers</div>
-                  <div className="nl-stat-v">{fmtNum(nl.subs)}</div>
-                </div>
-                <div className="nl-stat">
-                  <div className="nl-stat-l">Open Rate</div>
-                  <div className="nl-stat-v" style={{ color: openNum > 50 ? 'var(--teal)' : openNum > 0 ? 'var(--text)' : 'var(--text-3)' }}>
-                    {nl.openRate}
+      {isLive ? (
+        isLoading ? (
+          <div style={{ padding: '20px 0', color: 'var(--text-3)', fontFamily: 'var(--mono)', fontSize: 12 }}>
+            Loading newsletters…
+          </div>
+        ) : (
+          <div className="nl-grid">
+            {liveNewsletters.map((nl, i) => {
+              const hue = HUE_PALETTE[i % HUE_PALETTE.length];
+              const bg     = hue.replace(')', '/0.15)');
+              const border = hue.replace(')', '/0.3)');
+              const ini    = nl.siteLabel.split(/\s+/).slice(0, 2).map(w => w[0].toUpperCase()).join('');
+              const statusCls   = nl.status === 'active' ? 'online' : 'offline';
+              const statusLabel = nl.status === 'active' ? 'active' : 'archived';
+              return (
+                <div key={nl.id} className="nl-card">
+                  <div className="nl-head">
+                    <div className="site-fav" style={{ background: bg, color: hue, borderColor: border, width: 32, height: 32, fontSize: 12 }}>
+                      {ini}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.005em' }}>{nl.name}</div>
+                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--text-3)' }}>{nl.siteUrl.replace(/^https?:\/\//, '')}</div>
+                    </div>
+                    <div className={'status ' + statusCls}>
+                      <span className="d" />{statusLabel}
+                    </div>
+                  </div>
+                  {nl.description && (
+                    <div style={{ padding: '8px 12px 0', fontSize: 12, color: 'var(--text-2)', lineHeight: 1.5 }}>
+                      {nl.description}
+                    </div>
+                  )}
+                  <div className="nl-stats">
+                    <div className="nl-stat">
+                      <div className="nl-stat-l">Sender</div>
+                      <div className="nl-stat-v" style={{ fontSize: 11 }}>{nl.senderName}</div>
+                    </div>
+                    <div className="nl-stat">
+                      <div className="nl-stat-l">Site</div>
+                      <div className="nl-stat-v" style={{ fontSize: 11 }}>{nl.siteLabel}</div>
+                    </div>
+                  </div>
+                  <div className="nl-foot">
+                    <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--text-3)' }}>
+                      Open/click stats require Ghost email analytics
+                    </span>
+                    <button className="btn" style={{ height: 24, padding: '0 10px', fontSize: 11 }}>
+                      <I.Send size={11} /> Compose
+                    </button>
                   </div>
                 </div>
-                <div className="nl-stat">
-                  <div className="nl-stat-l">Click Rate</div>
-                  <div className="nl-stat-v">{nl.clickRate}</div>
+              );
+            })}
+          </div>
+        )
+      ) : (
+        <div className="nl-grid">
+          {MOCK_NEWSLETTERS.map((nl, i) => {
+            const site = SITES.find(s => s.id === nl.siteId);
+            const openNum = nl.openRate !== '—' ? parseFloat(nl.openRate) : 0;
+            const statusCls   = nl.status === 'active' ? 'online' : nl.status === 'warn' ? 'warn' : 'offline';
+            const statusLabel = nl.status === 'active' ? 'active' : nl.status === 'warn' ? 'stale' : 'setup';
+            return (
+              <div key={i} className="nl-card">
+                <div className="nl-head">
+                  <div className="site-fav" style={{
+                    background: site.hue.replace(')', '/0.15)'),
+                    color: site.hue,
+                    borderColor: site.hue.replace(')', '/0.3)'),
+                    width: 32, height: 32, fontSize: 12,
+                  }}>
+                    {site.initials}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 600, letterSpacing: '-0.005em' }}>{nl.name}</div>
+                    <div style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--text-3)' }}>{site.url}</div>
+                  </div>
+                  <div className={'status ' + statusCls}>
+                    <span className="d" />{statusLabel}
+                  </div>
                 </div>
-                <div className="nl-stat">
-                  <div className="nl-stat-l">Cadence</div>
-                  <div className="nl-stat-v" style={{ fontSize: 12 }}>{nl.cadence}</div>
+                <div className="nl-stats">
+                  <div className="nl-stat"><div className="nl-stat-l">Subscribers</div><div className="nl-stat-v">{fmtNum(nl.subs)}</div></div>
+                  <div className="nl-stat">
+                    <div className="nl-stat-l">Open Rate</div>
+                    <div className="nl-stat-v" style={{ color: openNum > 50 ? 'var(--teal)' : openNum > 0 ? 'var(--text)' : 'var(--text-3)' }}>{nl.openRate}</div>
+                  </div>
+                  <div className="nl-stat"><div className="nl-stat-l">Click Rate</div><div className="nl-stat-v">{nl.clickRate}</div></div>
+                  <div className="nl-stat"><div className="nl-stat-l">Cadence</div><div className="nl-stat-v" style={{ fontSize: 12 }}>{nl.cadence}</div></div>
+                </div>
+                {nl.openRate !== '—' && (
+                  <div style={{ padding: '10px 12px 0', borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--mono)' }}>
+                      <span>open rate</span><span>{nl.openRate}</span>
+                    </div>
+                    <div className="prog-track">
+                      <div className="prog-fill" style={{
+                        width: nl.openRate,
+                        background: `color-mix(in srgb, var(--teal) ${openNum > 50 ? 100 : 70}%, var(--accent))`,
+                      }} />
+                    </div>
+                  </div>
+                )}
+                <div className="nl-foot">
+                  <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--text-3)' }}>
+                    Last sent {nl.lastSent === '—' ? 'never' : nl.lastSent}
+                  </span>
+                  <button className="btn" style={{ height: 24, padding: '0 10px', fontSize: 11 }}>
+                    <I.Send size={11} /> Compose
+                  </button>
                 </div>
               </div>
-
-              {nl.openRate !== '—' && (
-                <div style={{ padding: '10px 12px 0', borderTop: '1px solid var(--border)' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10.5, color: 'var(--text-3)', marginBottom: 4, fontFamily: 'var(--mono)' }}>
-                    <span>open rate</span><span>{nl.openRate}</span>
-                  </div>
-                  <div className="prog-track">
-                    <div className="prog-fill" style={{
-                      width: nl.openRate,
-                      background: `color-mix(in srgb, var(--teal) ${openNum > 50 ? 100 : 70}%, var(--accent))`,
-                    }} />
-                  </div>
-                </div>
-              )}
-
-              <div className="nl-foot">
-                <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--text-3)' }}>
-                  Last sent {nl.lastSent === '—' ? 'never' : nl.lastSent}
-                </span>
-                <button className="btn" style={{ height: 24, padding: '0 10px', fontSize: 11 }}>
-                  <I.Send size={11} /> Compose
-                </button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
