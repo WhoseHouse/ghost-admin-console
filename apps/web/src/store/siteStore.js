@@ -8,7 +8,7 @@ const useSiteStore = create(
       setSelectedSiteId: (id) => set({ selectedSiteId: id }),
 
       ddOpen: false,
-      setDdOpen: (v) => set({ ddOpen: typeof v === 'function' ? v : v }),
+      setDdOpen: (v) => set({ ddOpen: v }),
 
       sidebarCollapsed: false,
       setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
@@ -18,6 +18,10 @@ const useSiteStore = create(
 
       density: 'comfortable',
       setDensity: (v) => set({ density: v }),
+
+      // 'live' uses sites.json / .env; 'mock' uses hardcoded demo data
+      dataSource: 'live',
+      setDataSource: (v) => set({ dataSource: v }),
     }),
     {
       name: 'ghost-console-prefs',
@@ -26,6 +30,7 @@ const useSiteStore = create(
         sidebarCollapsed: s.sidebarCollapsed,
         accent: s.accent,
         density: s.density,
+        dataSource: s.dataSource,
       }),
     }
   )

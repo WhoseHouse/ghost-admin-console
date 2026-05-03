@@ -1,0 +1,16 @@
+[
+  {
+    "id": "my-blog",
+    "label": "My Blog",
+    "url": "https://my-blog.ghost.io",
+    "adminKey": "YOUR_ADMIN_API_KEY",
+    "contentKey": "YOUR_CONTENT_API_KEY"
+  },
+  {
+    "id": "my-second-blog",
+    "label": "My Second Blog",
+    "url": "https://my-second-blog.ghost.io",
+    "adminKey": "YOUR_ADMIN_API_KEY",
+    "contentKey": "YOUR_CONTENT_API_KEY"
+  }
+]
